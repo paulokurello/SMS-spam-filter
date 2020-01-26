@@ -29,6 +29,50 @@ def preprocessMessage(message, lowerCase = False, stemWords=False, rmStopWords=F
     return words
 
 
+class BagOfWordsClassifier:
+    def __init__(self, trainingSet, alpha=1):
+        self.messages = trainingSet['message']
+        self.labels = trainingSet['value']
+        self.messageCount = self.messages.size
+        self.spamCount = self.labels.value_counts()[1]
+        self.hamCount = self.messageCount - self.spamCount
+        self.alpha = alpha
+        self.wordsCount = 0
+        self.wordsSpamCount = dict()
+        self.wordsHamCount = dict()
+        self.spamWordsCount = 0
+        self.hamWordsCount = 0
+        self.wordsInSet = dict()
+        self.probWordsSpam = dict()
+        self.probWordsHam = dict()
+        self.probSpam = self.spamCount / self.messageCount
+        self.probHam = 1 - self.probSpam
+        self.probWords = dict()
+
+    def calcParameters(self):
+        for i in range(self.messageCount):
+            label = self.labels[i]
+            words = preprocessMessage(self.messages[i])
+            for word in words:
+                if label == 1:
+                    self.wordsSpamCount[word] = self.wordsSpamCount.get(word, 0) + 1
+                    self.spamWordsCount += 1
+                else:
+                    self.wordsHamCount[word] = self.wordsHamCount.get(word, 0) + 1
+                    self.hamWordsCount += 1
+                self.wordsInSet[word] = self.wordsInSet.get(word, 0) + 1
+                self.wordsCount += 1
+        for word in self.wordsInSet:
+            self.probWords[word] = (self.wordsInSet[word] + self.alpha) / (self.wordsCount + \
+                                    len(list(self.wordsInSet.keys()))*self.alpha)
+        for word in self.wordsSpamCount:
+            self.probWordsSpam[word] = (self.wordsSpamCount[word] + self.alpha) / (self.spamWordsCount + \
+                                        len(list(self.wordsSpamCount.keys()))*self.alpha)
+        for word in self.wordsHamCount:
+            self.probWordsHam[word] = (self.wordsHamCount[word] + self.alpha) / (self.hamWordsCount + \
+                                        len(list(self.wordsHamCount.keys()))*self.alpha)
+
+
 data = readDataSet('spam.csv', ['Unnamed: 2', 'Unnamed: 3', 'Unnamed: 4'])
 data.rename({'v1': 'value', 'v2': 'message'}, axis=1, inplace=True)
 print(data.head())
@@ -36,10 +80,11 @@ print(data['value'].value_counts())
 data['value'] = data['value'].map({'ham': 0, 'spam': 1})
 print(data.head())
 
-rowCount = data['value'].count()
+test = BagOfWordsClassifier(data)
+test.calcParameters()
+print(data['value'][250])
+print(data['message'][250])
 
-for i in preprocessMessage(data['message'][2]):
-    print(i)
 
 
 
