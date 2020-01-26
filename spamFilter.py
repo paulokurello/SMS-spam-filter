@@ -43,11 +43,11 @@ class BagOfWordsClassifier:
         self.spamWordsCount = 0
         self.hamWordsCount = 0
         self.wordsInSet = dict()
-        self.probWordsSpam = dict()
-        self.probWordsHam = dict()
-        self.probSpam = self.spamCount / self.messageCount
-        self.probHam = 1 - self.probSpam
-        self.probWords = dict()
+        self.probWordsSpam = dict()    #p(w|spam)
+        self.probWordsHam = dict()      #p(w|ham)
+        self.probSpam = self.spamCount / self.messageCount   #p(spam)
+        self.probHam = 1 - self.probSpam    #p(ham)
+        self.probWords = dict()             #p(w)
 
     def calcParameters(self):
         for i in range(self.messageCount):
