@@ -1,3 +1,4 @@
+import argparse
 import numpy
 import pandas
 import string
@@ -107,14 +108,11 @@ class Classifier:
                                        (self.tfidfSumSpam + self.alpha * self.spamWordsCount)
 
     def TestMessages(self, testingSet, lowerCase = False, stemWords=False, rmStopWords=False):
-        self.tmpMsg = testingSet['message']
-        self.tmpLab = testingSet['value']
-        self.tmpcount = self.tmpMsg.size
+        self.tmpcount = testingSet.size
         self.correct = 0
         predictionList = list()
         for i in range(self.tmpcount):
-            label = self.tmpLab.iloc[i]
-            words = preprocessMessage(self.tmpMsg.iloc[i],  lowerCase, stemWords, rmStopWords)
+            words = preprocessMessage(testingSet.iloc[i],  lowerCase, stemWords, rmStopWords)
             SpamProb = self.probSpam
             HamProb = self.probHam
             for word in words:
@@ -146,30 +144,91 @@ def statistics(labels, predictions):
     recall = truePos / (truePos + falseNeg)
     Fscore = 2 * precision * recall / (precision + recall)
     accuracy = (truePos + trueNeg) / (truePos + trueNeg + falsePos + falseNeg)
-    result = "Precision: ," + str(precision) + ", Recall: ," + str(recall) + ", F-score: ," + str(Fscore) + ", Accuracy: ," + str(accuracy) + ', \n'
-    plik.write(result)
+    result = "Precision: ," + str(precision) + ", Recall: ," + str(recall) + ", F-score: ," + str(Fscore) +\
+             ", Accuracy: ," + str(accuracy) + ', \n'
+    statisticsFile.write(result)
 
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--mode", required=True, help="test or predict")
+parser.add_argument("--model", required=True, help="BOW or TFIDF")
+parser.add_argument("--filename", required=False, help="filename")
+parser.add_argument("--lower", type=bool, required=False, help="Change letters to lowercase")
+parser.add_argument("--stem", type=bool, required=False, help="Use stemmer in preprocessing")
+parser.add_argument("--rmStop", type=bool, required=False, help="Remove stop words in english")
+
+args = parser.parse_args()
+filename = args.filename
+mode = args.mode
+model = args.model
+lower = args.lower
+stem = args.stem
+rm = args.rmStop
+
+if lower is None:
+    lower = False
+
+if stem is None:
+    stem = False
+
+if rm is None:
+    rm = False
+
+if mode == 'predict' and filename is None:
+    print('You need to specify file with data to predict')
+    exit(1)
+
+if filename is not None:
+
+    try:
+        with open(filename, 'r') as f:
+            messages = list()
+            for line in f:
+                messages.append(line)
+    except Exception:
+        print("File error")
+        exit(1)
+
+    message = pandas.Series(messages)
 
 data = readDataSet('spam.csv', ['Unnamed: 2', 'Unnamed: 3', 'Unnamed: 4'])
 data.rename({'v1': 'value', 'v2': 'message'}, axis=1, inplace=True)
 data['value'] = data['value'].map({'ham': 0, 'spam': 1})
-plik = open('TFIDF---rmStop', 'w')
 
 
-for k in range(50):
-    trainIndex, testIndex = list(), list()
-    for i in range(data.shape[0]):
-        if numpy.random.uniform(0, 1) < 0.75:
-            trainIndex += [i]
+if mode == 'test':
+    statisticsFile = open('statistics', 'w')
+    for k in range(50):
+        trainIndex, testIndex = list(), list()
+        for i in range(data.shape[0]):
+            if numpy.random.uniform(0, 1) < 0.75:
+                trainIndex += [i]
+            else:
+                testIndex += [i]
+        trainData = data.loc[trainIndex]
+        testData = data.loc[testIndex]
+
+        test = Classifier(trainData)
+        if model == 'BOW':
+            test.calcParametersBOW(lower, stem, rm)
         else:
-            testIndex += [i]
-    trainData = data.loc[trainIndex]
-    testData = data.loc[testIndex]
+            test.calcParametersTFIDF(lower, stem, rm)
+        results = list()
+        results = test.TestMessages(testData['message'], lower, stem, rm)
+        statistics(testData['value'], results)
+    statisticsFile.close()
+else:
+    classifier = Classifier(data)
+    if model == 'BOW':
+        classifier.calcParametersBOW(lower, stem, rm)
+    else:
+        classifier.calcParametersTFIDF(lower, stem, rm)
+    results = classifier.TestMessages(message, lower, stem, rm)
+    for i in range(message.size):
+        if results[i] == 1:
+            print('spam \t', message[i])
+        else:
+            print('ham  \t', message[i])
 
-    test = Classifier(trainData)
-    test.calcParametersTFIDF(False, False, True)
-    results = list()
-    results = test.TestMessages(testData)
-    statistics(testData['value'], results)
 
-plik.close()
+
