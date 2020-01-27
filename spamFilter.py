@@ -77,10 +77,10 @@ class Classifier:
             self.probWordsHam[word] = (self.wordsHamCount[word] + self.alpha) / (self.hamWordsCount + \
                                         len(list(self.wordsHamCount.keys()))*self.alpha)
 
-    def calcParametersTFIDF(self):
+    def calcParametersTFIDF(self, lowerCase = False, stemWords=False, rmStopWords=False):
         for i in range(self.messageCount):
             label = self.labels.iloc[i]
-            words = preprocessMessage(self.messages.iloc[i])
+            words = preprocessMessage(self.messages.iloc[i], lowerCase, stemWords, rmStopWords)
             for word in words:
                 filter(lambda a: a != word, words)
                 if label == 1:
@@ -152,14 +152,11 @@ def statistics(labels, predictions):
 
 data = readDataSet('spam.csv', ['Unnamed: 2', 'Unnamed: 3', 'Unnamed: 4'])
 data.rename({'v1': 'value', 'v2': 'message'}, axis=1, inplace=True)
-print(data.head())
-print(data['value'].value_counts())
 data['value'] = data['value'].map({'ham': 0, 'spam': 1})
-print(data.head())
-plik = open('BOWsam', 'w')
+plik = open('TFIDF-none', 'w')
 
 
-for k in range(5):
+for k in range(50):
     trainIndex, testIndex = list(), list()
     for i in range(data.shape[0]):
         if numpy.random.uniform(0, 1) < 0.75:
@@ -170,7 +167,7 @@ for k in range(5):
     testData = data.loc[testIndex]
 
     test = Classifier(trainData)
-    test.calcParametersBOW(False, False, False)
+    test.calcParametersTFIDF(False, False, False)
     results = list()
     results = test.TestMessages(testData)
     statistics(testData['value'], results)
