@@ -106,6 +106,33 @@ class Classifier:
             self.probWordsSpam[word] = (self.wordsSpamCount.get(word, 0) * self.idf[word] + self.alpha) / \
                                        (self.tfidfSumSpam + self.alpha * self.spamWordsCount)
 
+    def TestMessages(self, testingSet):
+        self.tmpMsg = testingSet['message']
+        self.tmpLab = testingSet['value']
+        self.tmpcount = self.tmpMsg.size
+        for i in range(self.tmpcount):
+            label = self.tmpLab[i]
+            words = preprocessMessage(self.tmpMsg[i])
+            SpamProb = self.probSpam
+            HamProb = self.probHam
+            for word in words:
+                filter(lambda a: a != word, words)
+                if self.probWordsSpam.get(word, 0) == 0:
+                    SpamProb = SpamProb * self.alpha / (self.alpha * self.spamWordsCount)
+                else:
+                    SpamProb *= self.probWordsSpam[word]
+                if self.probWordsHam.get(word, 0) == 0:
+                    HamProb = HamProb * self.alpha / (self.alpha * self.hamWordsCount)
+                else:
+                    HamProb *= self.probWordsHam[word]
+            if HamProb > SpamProb:
+                prediction = 0
+            else:
+                prediction = 1
+            if prediction == label:
+                print('prediction successful', label, ' ', prediction)
+            else:
+                print('prediction fail', label, ' ', prediction)
 
 data = readDataSet('spam.csv', ['Unnamed: 2', 'Unnamed: 3', 'Unnamed: 4'])
 data.rename({'v1': 'value', 'v2': 'message'}, axis=1, inplace=True)
@@ -118,6 +145,8 @@ test = Classifier(data)
 test.calcParametersBOW()
 print(data['value'][250])
 print(data['message'][250])
+
+test.TestMessages(data)
 
 
 
