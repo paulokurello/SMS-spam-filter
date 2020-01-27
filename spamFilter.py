@@ -1,5 +1,6 @@
 import pandas
 import string
+import math
 from nltk.stem import PorterStemmer
 from nltk.corpus import stopwords
 
@@ -29,7 +30,7 @@ def preprocessMessage(message, lowerCase = False, stemWords=False, rmStopWords=F
     return words
 
 
-class BagOfWordsClassifier:
+class Classifier:
     def __init__(self, trainingSet, alpha=1):
         self.messages = trainingSet['message']
         self.labels = trainingSet['value']
@@ -48,8 +49,12 @@ class BagOfWordsClassifier:
         self.probSpam = self.spamCount / self.messageCount   #p(spam)
         self.probHam = 1 - self.probSpam    #p(ham)
         self.probWords = dict()             #p(w)
+        self.idf = dict()
+        self.tfidfSumAll = 0
+        self.tfidfSumHam = 0
+        self.tfidfSumSpam = 0
 
-    def calcParameters(self):
+    def calcParametersBOW(self):
         for i in range(self.messageCount):
             label = self.labels[i]
             words = preprocessMessage(self.messages[i])
@@ -72,6 +77,35 @@ class BagOfWordsClassifier:
             self.probWordsHam[word] = (self.wordsHamCount[word] + self.alpha) / (self.hamWordsCount + \
                                         len(list(self.wordsHamCount.keys()))*self.alpha)
 
+    def calcParametersTFIDF(self):
+        for i in range(self.messageCount):
+            label = self.labels[i]
+            words = preprocessMessage(self.messages[i])
+            for word in words:
+                filter(lambda a: a != word, words)
+                if label == 1:
+                    self.wordsSpamCount[word] = self.wordsSpamCount.get(word, 0) + 1
+                    self.spamWordsCount += 1
+                else:
+                    self.wordsHamCount[word] = self.wordsHamCount.get(word, 0) + 1
+                    self.hamWordsCount += 1
+                self.wordsInSet[word] = self.wordsInSet.get(word, 0) + 1
+                self.wordsCount += 1
+        for word in self.wordsInSet:
+            self.idf[word] = math.log10(self.messageCount / (self.wordsSpamCount.get(word, 0) + \
+                                                             self.wordsHamCount.get(word, 0)))
+        for word in self.wordsInSet:
+            self.tfidfSumAll += (self.wordsHamCount.get(word, 0) + self.wordsSpamCount.get(word, 0)) * self.idf[word]
+            self.tfidfSumHam += self.wordsHamCount.get(word, 0) * self.idf[word]
+            self.tfidfSumSpam += self.wordsSpamCount.get(word, 0) * self.idf[word]
+        for word in self.wordsInSet:
+            self.probWords[word] = (self.wordsSpamCount.get(word, 0) + self.wordsHamCount.get(word, 0)) * \
+                                   self.idf[word] / self.tfidfSumAll
+            self.probWordsHam[word] = (self.wordsHamCount.get(word, 0) * self.idf[word] + self.alpha) / \
+                                      (self.tfidfSumHam + self.alpha * self.hamWordsCount)
+            self.probWordsSpam[word] = (self.wordsSpamCount.get(word, 0) * self.idf[word] + self.alpha) / \
+                                       (self.tfidfSumSpam + self.alpha * self.spamWordsCount)
+
 
 data = readDataSet('spam.csv', ['Unnamed: 2', 'Unnamed: 3', 'Unnamed: 4'])
 data.rename({'v1': 'value', 'v2': 'message'}, axis=1, inplace=True)
@@ -80,8 +114,8 @@ print(data['value'].value_counts())
 data['value'] = data['value'].map({'ham': 0, 'spam': 1})
 print(data.head())
 
-test = BagOfWordsClassifier(data)
-test.calcParameters()
+test = Classifier(data)
+test.calcParametersBOW()
 print(data['value'][250])
 print(data['message'][250])
 
