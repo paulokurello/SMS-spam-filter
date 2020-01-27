@@ -106,7 +106,7 @@ class Classifier:
             self.probWordsSpam[word] = (self.wordsSpamCount.get(word, 0) * self.idf[word] + self.alpha) / \
                                        (self.tfidfSumSpam + self.alpha * self.spamWordsCount)
 
-    def TestMessages(self, testingSet):
+    def TestMessages(self, testingSet, lowerCase = False, stemWords=False, rmStopWords=False):
         self.tmpMsg = testingSet['message']
         self.tmpLab = testingSet['value']
         self.tmpcount = self.tmpMsg.size
@@ -114,7 +114,7 @@ class Classifier:
         predictionList = list()
         for i in range(self.tmpcount):
             label = self.tmpLab.iloc[i]
-            words = preprocessMessage(self.tmpMsg.iloc[i])
+            words = preprocessMessage(self.tmpMsg.iloc[i],  lowerCase, stemWords, rmStopWords)
             SpamProb = self.probSpam
             HamProb = self.probHam
             for word in words:
@@ -153,7 +153,7 @@ def statistics(labels, predictions):
 data = readDataSet('spam.csv', ['Unnamed: 2', 'Unnamed: 3', 'Unnamed: 4'])
 data.rename({'v1': 'value', 'v2': 'message'}, axis=1, inplace=True)
 data['value'] = data['value'].map({'ham': 0, 'spam': 1})
-plik = open('TFIDF-none', 'w')
+plik = open('TFIDF---rmStop', 'w')
 
 
 for k in range(50):
@@ -167,7 +167,7 @@ for k in range(50):
     testData = data.loc[testIndex]
 
     test = Classifier(trainData)
-    test.calcParametersTFIDF(False, False, False)
+    test.calcParametersTFIDF(False, False, True)
     results = list()
     results = test.TestMessages(testData)
     statistics(testData['value'], results)
